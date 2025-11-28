@@ -1,85 +1,133 @@
-import { CompanionWidget } from "@/components/CompanionWidget";
-import { TaskList } from "@/components/TaskList";
-import { IcyTowerGame } from "@/components/IcyTowerGame";
-import { Leaderboard } from "@/components/Leaderboard";
-import { RewardShop } from "@/components/RewardShop";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GraduationCap, Gamepad2, Trophy, ShoppingBag } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import squirrelImage from "@/assets/squirrel.png";
 
 const Index = () => {
+  const courses = [
+    {
+      title: "2025z Bazy danych lab NS1 sem5 PD",
+      meta: "III rok • Semestr zimowy",
+    },
+    {
+      title: "23/24 - Systemy Operacyjne 1 - Wykład",
+      meta: "I rok • Wykład",
+    },
+    {
+      title: "25/26 zaoczne - Podstawy inżynierii oprogramowania",
+      meta: "Zaoczne • PIO",
+    },
+  ];
+
+  const tiles = [
+    "Strona WEEIA",
+    "Strefa pracownika",
+    "Strefa studenta",
+    "Wsparcie WIKAMP",
+    "Centrum IT",
+    "Przedmioty",
+    "Akty normatywne",
+    "Zgłoś problem",
+  ];
+
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-primary via-primary to-secondary text-primary-foreground shadow-lg sticky top-0 z-10">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-sm">
-              <GraduationCap className="w-8 h-8" />
+    <div className="min-h-screen bg-background">
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-screen p-5 sticky top-0">
+          <h2 className="text-xl font-bold mb-6">WIKAMP WEEIA</h2>
+          <nav className="space-y-2">
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              Kokpit
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              Strona główna
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              Prywatne pliki
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              Moje przedmioty
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              2025z Bazy danych lab NS1
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              23/24-SO1Z
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              25/26 zaoczne PIO
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              Dla studentów WEEIA
+            </a>
+            <a href="#" className="block px-3 py-2 rounded-md hover:bg-white/10 transition-colors">
+              Organizacja praktyk
+            </a>
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6">
+          <h1 className="text-3xl font-bold mb-8 text-foreground">
+            Szkolenia Centrum E-learningu
+          </h1>
+
+          {/* Tiles */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {tiles.map((tile, index) => (
+              <Card
+                key={index}
+                className="p-4 text-center font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer border-2 border-border"
+              >
+                {tile}
+              </Card>
+            ))}
+          </div>
+
+          {/* Courses Section */}
+          <Card className="p-6 border-2 border-border">
+            <h3 className="text-2xl font-bold mb-6 text-foreground">
+              Przegląd przedmiotów
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {courses.map((course, index) => (
+                <Card key={index} className="p-4 bg-card border border-border flex flex-col gap-3">
+                  <div className="font-bold text-foreground">{course.title}</div>
+                  <div className="text-sm text-muted-foreground">{course.meta}</div>
+                  <div className="flex gap-2 mt-auto">
+                    <Button variant="secondary" size="sm" className="flex-1">
+                      Podgląd
+                    </Button>
+                    <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90">
+                      Wejdź
+                    </Button>
+                  </div>
+                </Card>
+              ))}
             </div>
-            <div>
-              <h1 className="text-3xl font-bold">Wikamp - Wirtualny Towarzysz</h1>
-              <p className="text-primary-foreground/90 text-sm">
-                Ucz się, baw się i zdobywaj nagrody!
-              </p>
+          </Card>
+        </main>
+      </div>
+
+      {/* Squirrel Companion - Fixed in corner */}
+      <Link to="/companion">
+        <div className="fixed bottom-6 right-6 group cursor-pointer z-50">
+          <div className="relative">
+            <div className="absolute -inset-4 bg-gradient-to-r from-primary to-secondary rounded-full opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300" />
+            <div className="relative w-44 h-44 rounded-full overflow-hidden border-4 border-primary/30 shadow-[var(--shadow-hover)] bg-gradient-to-br from-secondary/20 to-primary/10 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 group-hover:border-primary">
+              <img
+                src={squirrelImage}
+                alt="Twój wirtualny towarzysz - kliknij aby otworzyć"
+                className="w-36 h-36 object-contain animate-bounce"
+              />
+            </div>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Kliknij mnie! 🎮
             </div>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto p-2 bg-card border-2 border-primary/10">
-            <TabsTrigger
-              value="tasks"
-              className="flex flex-col gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <GraduationCap className="w-5 h-5" />
-              <span className="text-sm font-semibold">Zadania</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="game"
-              className="flex flex-col gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <Gamepad2 className="w-5 h-5" />
-              <span className="text-sm font-semibold">Mini Gra</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="leaderboard"
-              className="flex flex-col gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <Trophy className="w-5 h-5" />
-              <span className="text-sm font-semibold">Ranking</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="shop"
-              className="flex flex-col gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-semibold">Sklep</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="tasks" className="space-y-6">
-            <TaskList />
-          </TabsContent>
-
-          <TabsContent value="game" className="space-y-6">
-            <IcyTowerGame />
-          </TabsContent>
-
-          <TabsContent value="leaderboard" className="space-y-6">
-            <Leaderboard />
-          </TabsContent>
-
-          <TabsContent value="shop" className="space-y-6">
-            <RewardShop />
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      {/* Companion Widget - Fixed position */}
-      <CompanionWidget />
+      </Link>
     </div>
   );
 };
