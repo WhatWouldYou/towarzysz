@@ -1,18 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Circle, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  points: number;
-  completed: boolean;
-  category: "beginner" | "intermediate" | "advanced";
-}
+import { markTaskAsCompleted, getCompletedTasks, type Task } from "@/lib/taskManager";
 
 export const TaskList = () => {
   const { toast } = useToast();
@@ -27,6 +19,14 @@ export const TaskList = () => {
     },
     {
       id: "2",
+      title: "Przejdź do podglądu przedmiotu",
+      description: "Kliknij przycisk 'Podgląd' przy dowolnym przedmiocie na stronie głównej",
+      points: 15,
+      completed: false,
+      category: "beginner",
+    },
+    {
+      id: "3",
       title: "Przeglądnij kursy",
       description: "Zobacz dostępne kursy i ich opisy",
       points: 15,
@@ -34,7 +34,7 @@ export const TaskList = () => {
       category: "beginner",
     },
     {
-      id: "3",
+      id: "4",
       title: "Ukończ pierwszą lekcję",
       description: "Obejrzyj materiał z wybranego kursu",
       points: 25,
@@ -42,7 +42,7 @@ export const TaskList = () => {
       category: "intermediate",
     },
     {
-      id: "4",
+      id: "5",
       title: "Zrób test wiedzy",
       description: "Sprawdź swoją wiedzę w quizie",
       points: 30,
@@ -50,7 +50,7 @@ export const TaskList = () => {
       category: "intermediate",
     },
     {
-      id: "5",
+      id: "6",
       title: "Udostępnij materiał",
       description: "Podziel się interesującym materiałem ze znajomymi",
       points: 20,
@@ -59,15 +59,51 @@ export const TaskList = () => {
     },
   ]);
 
-  const completeTask = (taskId: string) => {
+  // Load completed tasks from localStorage on mount
+  useEffect(() => {
+    const completedTaskIds = getCompletedTasks();
     setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, completed: true } : task
-      )
+      prev.map((task) => ({
+        ...task,
+        completed: completedTaskIds.includes(task.id),
+      }))
     );
+  }, []);
 
+  // Listen for task completion events
+  useEffect(() => {
+    const handleTaskCompleted = (event: CustomEvent) => {
+      const { taskId } = event.detail;
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, completed: true } : task
+        )
+      );
+
+      const task = tasks.find((t) => t.id === taskId);
+      if (task && !task.completed) {
+        toast({
+          title: "Gratulacje! 🎉",
+          description: `Zdobyłeś ${task.points} punktów za: ${task.title}`,
+        });
+      }
+    };
+
+    window.addEventListener("taskCompleted", handleTaskCompleted as EventListener);
+    return () => {
+      window.removeEventListener("taskCompleted", handleTaskCompleted as EventListener);
+    };
+  }, [tasks, toast]);
+
+  const completeTask = (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
-    if (task) {
+    if (task && !task.completed) {
+      markTaskAsCompleted(taskId);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, completed: true } : t
+        )
+      );
       toast({
         title: "Gratulacje! 🎉",
         description: `Zdobyłeś ${task.points} punktów za: ${task.title}`,

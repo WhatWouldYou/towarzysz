@@ -1,9 +1,23 @@
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { markTaskAsCompleted } from "@/lib/taskManager";
 import squirrelImage from "@/assets/squirrel.png";
 
 const Index = () => {
+  const { toast } = useToast();
+
+  const handlePreview = (courseName: string) => {
+    // Mark task as completed
+    markTaskAsCompleted("2");
+    
+    toast({
+      title: "Podgląd przedmiotu",
+      description: `Wyświetlam podgląd: ${courseName}`,
+    });
+  };
+
   const courses = [
     {
       title: "2025z Bazy danych lab NS1 sem5 PD",
@@ -96,7 +110,12 @@ const Index = () => {
                   <div className="font-bold text-foreground">{course.title}</div>
                   <div className="text-sm text-muted-foreground">{course.meta}</div>
                   <div className="flex gap-2 mt-auto">
-                    <Button variant="secondary" size="sm" className="flex-1">
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handlePreview(course.title)}
+                    >
                       Podgląd
                     </Button>
                     <Button size="sm" className="flex-1 bg-primary hover:bg-primary/90">
