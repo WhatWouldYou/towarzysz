@@ -175,9 +175,26 @@ export const IcyTowerGame = () => {
   }, [gameStarted, gameOver, highScore]);
 
   const startGame = () => {
-    setGameStarted(true);
-    setGameOver(false);
+    // Reset player position
+    playerRef.current = { x: 200, y: 400, vx: 0, vy: 0, jumping: false };
+    cameraYRef.current = 0;
+    
+    // Reset platforms
+    const canvas = canvasRef.current;
+    if (canvas) {
+      platformsRef.current = [];
+      for (let i = 0; i < 15; i++) {
+        platformsRef.current.push({
+          x: Math.random() * (canvas.width - 100),
+          y: canvas.height - i * 60,
+          width: 80 + Math.random() * 40,
+        });
+      }
+    }
+    
     setScore(0);
+    setGameOver(false);
+    setGameStarted(true);
   };
 
   return (
