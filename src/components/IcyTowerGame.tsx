@@ -1,228 +1,400 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, ArrowUp } from "lucide-react";
+import { Trophy, ArrowUp, RefreshCw } from "lucide-react";
+
+interface Player {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  jumping: boolean;
+  width: number;
+  height: number;
+}
+
+interface Platform {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 export const IcyTowerGame = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
+  const [highScore, setHighScore] = useState(() => {
+    // Load high score from localStorage if available
+    const saved = localStorage.getItem("icyTowerHighScore");
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   
-  const playerRef = useRef({ x: 200, y: 400, vx: 0, vy: 0, jumping: false });
-  const platformsRef = useRef<Array<{ x: number; y: number; width: number }>>([]);
+  const playerRef = useRef<Player>({
+    x: 200,
+    y: 400,
+    vx: 0,
+    vy: 0,
+    jumping: true,
+    width: 20,
+    height: 20
+  });
+  
+  const platformsRef = useRef<Platform[]>([]);
   const cameraYRef = useRef(0);
+  const keysPressedRef = useRef<Set<string>>(new Set());
+  const lastTimestampRef = useRef<number>(0);
+  const gameLoopIdRef = useRef<number>(0);
 
+  // Save high score to localStorage when it changes
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Initialize platforms
-    const initPlatforms = () => {
-      platformsRef.current = [];
-      for (let i = 0; i < 15; i++) {
-        platformsRef.current.push({
-          x: Math.random() * (canvas.width - 100),
-          y: canvas.height - i * 60,
-          width: 80 + Math.random() * 40,
-        });
-      }
-    };
-
-    const resetGame = () => {
-      playerRef.current = { x: 200, y: 400, vx: 0, vy: 0, jumping: false };
-      cameraYRef.current = 0;
-      setScore(0);
-      setGameOver(false);
-      initPlatforms();
-    };
-
-    if (gameStarted && !gameOver) {
-      initPlatforms();
+    if (highScore > 0) {
+      localStorage.setItem("icyTowerHighScore", highScore.toString());
     }
+  }, [highScore]);
 
+  // Keyboard controls
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!gameStarted || gameOver) return;
+      keysPressedRef.current.add(e.key);
       
-      const player = playerRef.current;
-      if (e.key === "ArrowLeft") player.vx = -5;
-      if (e.key === "ArrowRight") player.vx = 5;
-      if (e.key === " " && !player.jumping) {
-        player.vy = -15;
-        player.jumping = true;
+      if (e.key === " " && gameStarted && !gameOver) {
+        e.preventDefault(); // Prevent spacebar from scrolling page
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        playerRef.current.vx = 0;
-      }
+      keysPressedRef.current.delete(e.key);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
-    let animationId: number;
-
-    const gameLoop = () => {
-      if (!gameStarted || gameOver) return;
-
-      const player = playerRef.current;
-      const platforms = platformsRef.current;
-
-      // Update player position
-      player.x += player.vx;
-      player.vy += 0.6; // Gravity
-      player.y += player.vy;
-
-      // Wrap around screen
-      if (player.x < -20) player.x = canvas.width;
-      if (player.x > canvas.width) player.x = -20;
-
-      // Check platform collisions
-      let onPlatform = false;
-      platforms.forEach((platform) => {
-        if (
-          player.y + 20 >= platform.y &&
-          player.y + 20 <= platform.y + 10 &&
-          player.x + 20 >= platform.x &&
-          player.x <= platform.x + platform.width &&
-          player.vy >= 0
-        ) {
-          player.y = platform.y - 20;
-          player.vy = 0;
-          player.jumping = false;
-          onPlatform = true;
-        }
-      });
-
-      // Camera follow
-      if (player.y < canvas.height / 2) {
-        const diff = canvas.height / 2 - player.y;
-        cameraYRef.current += diff;
-        player.y = canvas.height / 2;
-
-        platforms.forEach((p) => {
-          p.y += diff;
-        });
-
-        // Add new platforms at the top
-        while (platforms[platforms.length - 1].y > -60) {
-          platforms.push({
-            x: Math.random() * (canvas.width - 100),
-            y: platforms[platforms.length - 1].y - 60,
-            width: 80 + Math.random() * 40,
-          });
-        }
-
-        // Remove platforms that are off-screen at the bottom
-        platformsRef.current = platforms.filter((p) => p.y < canvas.height + 100);
-
-        // Update score
-        const newScore = Math.floor(cameraYRef.current / 10);
-        setScore(newScore);
-        if (newScore > highScore) {
-          setHighScore(newScore);
-        }
-      }
-
-      // Game over condition
-      if (player.y > canvas.height) {
-        setGameOver(true);
-        setGameStarted(false);
-      }
-
-      // Clear canvas
-      ctx.fillStyle = "#F5E6D3";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw platforms
-      platforms.forEach((platform) => {
-        ctx.fillStyle = "#ED814B";
-        ctx.fillRect(platform.x, platform.y, platform.width, 10);
-        ctx.fillStyle = "#D96F3E";
-        ctx.fillRect(platform.x, platform.y + 10, platform.width, 2);
-      });
-
-      // Draw player (squirrel-colored circle)
-      ctx.fillStyle = "#ED814B";
-      ctx.beginPath();
-      ctx.arc(player.x + 10, player.y + 10, 12, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Add details
-      ctx.fillStyle = "#D96F3E";
-      ctx.beginPath();
-      ctx.arc(player.x + 10, player.y + 10, 8, 0, Math.PI * 2);
-      ctx.fill();
-
-      animationId = requestAnimationFrame(gameLoop);
-    };
-
-    if (gameStarted && !gameOver) {
-      gameLoop();
-    }
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      cancelAnimationFrame(animationId);
     };
-  }, [gameStarted, gameOver, highScore]);
+  }, [gameStarted, gameOver]);
 
-  const startGame = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Game initialization
+  const initPlatforms = useCallback((canvas: HTMLCanvasElement) => {
+    const platforms: Platform[] = [];
+    const startPlatformY = canvas.height - 80;
     
-    // Create platforms with first one under player
-    platformsRef.current = [];
-    const startPlatformX = 150; // Fixed position for start platform
-    const startPlatformY = canvas.height - 60;
-    const startPlatformWidth = 120; // Wider start platform
-    
-    // Add starting platform
-    platformsRef.current.push({
-      x: startPlatformX,
+    // Create starting platform (wider and more stable)
+    platforms.push({
+      x: canvas.width / 2 - 60,
       y: startPlatformY,
-      width: startPlatformWidth,
+      width: 120,
+      height: 15
     });
     
-    // Add remaining platforms above
-    for (let i = 1; i < 15; i++) {
-      platformsRef.current.push({
-        x: Math.random() * (canvas.width - 100),
-        y: startPlatformY - i * 60,
-        width: 80 + Math.random() * 40,
+    // Create initial stack of platforms
+    for (let i = 1; i < 20; i++) {
+      const minGap = 50;
+      const maxGap = 70;
+      const minWidth = 70;
+      const maxWidth = 110;
+      
+      platforms.push({
+        x: Math.random() * (canvas.width - maxWidth),
+        y: startPlatformY - i * (Math.random() * (maxGap - minGap) + minGap),
+        width: Math.random() * (maxWidth - minWidth) + minWidth,
+        height: 12
       });
     }
     
-    // Position player on top of starting platform
-    playerRef.current = { 
-      x: startPlatformX + startPlatformWidth / 2 - 10, 
-      y: startPlatformY - 20, 
-      vx: 0, 
-      vy: 0, 
-      jumping: false 
+    platformsRef.current = platforms;
+  }, []);
+
+  const resetGame = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    playerRef.current = {
+      x: canvas.width / 2 - 10,
+      y: canvas.height - 100,
+      vx: 0,
+      vy: 0,
+      jumping: true,
+      width: 20,
+      height: 20
     };
-    cameraYRef.current = 0;
     
+    cameraYRef.current = 0;
+    keysPressedRef.current.clear();
     setScore(0);
     setGameOver(false);
+    initPlatforms(canvas);
+  }, [initPlatforms]);
+
+  const startGame = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    resetGame();
     setGameStarted(true);
-  };
+    setGameOver(false);
+    
+    // Start game loop
+    if (gameLoopIdRef.current) {
+      cancelAnimationFrame(gameLoopIdRef.current);
+    }
+    
+    lastTimestampRef.current = performance.now();
+    gameLoopIdRef.current = requestAnimationFrame(gameLoop);
+  }, [resetGame]);
+
+  const endGame = useCallback(() => {
+    setGameOver(true);
+    setGameStarted(false);
+    if (score > highScore) {
+      setHighScore(score);
+    }
+    cancelAnimationFrame(gameLoopIdRef.current);
+  }, [score, highScore]);
+
+  // Game loop
+  const gameLoop = useCallback((timestamp: number) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx || !gameStarted || gameOver) return;
+
+    // Calculate delta time for consistent physics
+    const deltaTime = Math.min(timestamp - lastTimestampRef.current, 32) / 16;
+    lastTimestampRef.current = timestamp;
+
+    const player = playerRef.current;
+    const platforms = platformsRef.current;
+    const keys = keysPressedRef.current;
+
+    // Handle player input with smoother acceleration
+    const moveSpeed = 6;
+    if (keys.has("ArrowLeft") || keys.has("a")) {
+      player.vx = -moveSpeed;
+    } else if (keys.has("ArrowRight") || keys.has("d")) {
+      player.vx = moveSpeed;
+    } else {
+      // Apply friction when no keys are pressed
+      player.vx *= 0.8;
+      if (Math.abs(player.vx) < 0.5) player.vx = 0;
+    }
+
+    // Handle jumping
+    if ((keys.has(" ") || keys.has("ArrowUp") || keys.has("w")) && !player.jumping) {
+      player.vy = -14;
+      player.jumping = true;
+    }
+
+    // Apply gravity
+    const gravity = 0.8;
+    player.vy += gravity * deltaTime;
+
+    // Update player position
+    player.x += player.vx * deltaTime;
+    player.y += player.vy * deltaTime;
+
+    // Screen boundaries (wrap around)
+    if (player.x < -player.width) {
+      player.x = canvas.width;
+    } else if (player.x > canvas.width) {
+      player.x = -player.width;
+    }
+
+    // Check platform collisions
+    let onPlatform = false;
+    const playerBottom = player.y + player.height;
+    const playerLeft = player.x;
+    const playerRight = player.x + player.width;
+
+    for (const platform of platforms) {
+      const platformTop = platform.y;
+      const platformBottom = platform.y + platform.height;
+      const platformLeft = platform.x;
+      const platformRight = platform.x + platform.width;
+
+      // Check if player is above platform and falling
+      if (
+        player.vy >= 0 &&
+        playerBottom >= platformTop &&
+        player.y <= platformTop &&
+        playerRight > platformLeft &&
+        playerLeft < platformRight
+      ) {
+        // Land on platform
+        player.y = platformTop - player.height;
+        player.vy = 0;
+        player.jumping = false;
+        onPlatform = true;
+        
+        // Small bounce effect when landing
+        player.y -= 1;
+        break;
+      }
+    }
+
+    // If not on any platform and not jumping, start falling
+    if (!onPlatform && !player.jumping && player.vy === 0) {
+      player.jumping = true;
+    }
+
+    // Camera follow and world scrolling
+    const cameraThreshold = canvas.height * 0.4;
+    if (player.y < cameraThreshold) {
+      const scrollAmount = cameraThreshold - player.y;
+      cameraYRef.current += scrollAmount;
+      player.y = cameraThreshold;
+
+      // Move all platforms down
+      for (const platform of platforms) {
+        platform.y += scrollAmount;
+      }
+
+      // Generate new platforms
+      const lowestPlatform = Math.max(...platforms.map(p => p.y));
+      while (lowestPlatform > -100) {
+        const minGap = 50;
+        const maxGap = 70;
+        const minWidth = 60;
+        const maxWidth = 100;
+        
+        platforms.push({
+          x: Math.random() * (canvas.width - maxWidth),
+          y: lowestPlatform - (Math.random() * (maxGap - minGap) + minGap),
+          width: Math.random() * (maxWidth - minWidth) + minWidth,
+          height: 12
+        });
+      }
+
+      // Remove platforms that are far below the screen
+      platformsRef.current = platforms.filter(p => p.y < canvas.height + 200);
+
+      // Update score
+      const newScore = Math.floor(cameraYRef.current / 5);
+      setScore(newScore);
+    }
+
+    // Game over condition
+    if (player.y > canvas.height + 50) {
+      endGame();
+      return;
+    }
+
+    // Render everything
+    // Clear canvas with gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#E3F2FD");
+    gradient.addColorStop(1, "#BBDEFB");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw platforms
+    platforms.forEach((platform) => {
+      // Platform shadow
+      ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+      ctx.fillRect(platform.x + 2, platform.y + 2, platform.width, platform.height);
+      
+      // Main platform
+      const platformGradient = ctx.createLinearGradient(
+        platform.x, platform.y,
+        platform.x, platform.y + platform.height
+      );
+      platformGradient.addColorStop(0, "#FF8A65");
+      platformGradient.addColorStop(1, "#D84315");
+      ctx.fillStyle = platformGradient;
+      ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+      
+      // Platform border
+      ctx.strokeStyle = "#BF360C";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+    });
+
+    // Draw player (squirrel) with more details
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+    
+    // Shadow
+    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+    ctx.beginPath();
+    ctx.ellipse(playerCenterX + 2, player.y + player.height + 3, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Body
+    const bodyGradient = ctx.createRadialGradient(
+      playerCenterX, playerCenterY, 0,
+      playerCenterX, playerCenterY, 12
+    );
+    bodyGradient.addColorStop(0, "#FFB74D");
+    bodyGradient.addColorStop(1, "#F57C00");
+    ctx.fillStyle = bodyGradient;
+    ctx.beginPath();
+    ctx.ellipse(playerCenterX, playerCenterY, 12, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Belly
+    ctx.fillStyle = "#FFE0B2";
+    ctx.beginPath();
+    ctx.ellipse(playerCenterX, playerCenterY + 3, 8, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Eyes
+    const eyeOffsetX = player.vx > 0 ? 2 : player.vx < 0 ? -2 : 0;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(playerCenterX - 4 + eyeOffsetX, playerCenterY - 2, 2, 0, Math.PI * 2);
+    ctx.arc(playerCenterX + 4 + eyeOffsetX, playerCenterY - 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Tail (with movement based on velocity)
+    const tailAngle = Math.sin(timestamp / 200) * 0.3;
+    ctx.save();
+    ctx.translate(playerCenterX + 8, playerCenterY);
+    ctx.rotate(tailAngle);
+    ctx.fillStyle = "#E65100";
+    ctx.beginPath();
+    ctx.ellipse(8, 0, 12, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Continue game loop
+    gameLoopIdRef.current = requestAnimationFrame(gameLoop);
+  }, [gameStarted, gameOver, endGame]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (gameLoopIdRef.current) {
+        cancelAnimationFrame(gameLoopIdRef.current);
+      }
+    };
+  }, []);
 
   return (
-    <Card className="p-6 bg-gradient-to-b from-card to-background border-2 border-primary/10">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Mini Gra: Wiewiórka w Górę!</h2>
-          <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
-            <Trophy className="w-5 h-5 text-primary" />
-            <span className="font-bold text-foreground">Rekord: {highScore}</span>
+    <Card className="p-6 bg-gradient-to-b from-card to-background border-2 border-primary/10 shadow-xl">
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+              🐿️ Wiewiórka w Górę!
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Wspinaj się jak najwyżej, unikaj spadania!
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
+              <Trophy className="w-5 h-5 text-primary" />
+              <span className="font-bold text-foreground">Rekord: {highScore}</span>
+            </div>
+            
+            {gameStarted && !gameOver && (
+              <div className="px-4 py-2 bg-primary text-primary-foreground rounded-full font-bold shadow-lg animate-pulse">
+                Wynik: {score}
+              </div>
+            )}
           </div>
         </div>
 
@@ -230,40 +402,89 @@ export const IcyTowerGame = () => {
           <canvas
             ref={canvasRef}
             width={400}
-            height={500}
-            className="w-full border-4 border-primary/20 rounded-xl bg-background"
+            height={600}
+            className="w-full border-4 border-primary/20 rounded-xl bg-background shadow-lg"
           />
 
           {!gameStarted && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-xl">
-              <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-foreground">
-                  {gameOver ? `Wynik: ${score}` : "Gotowy do skoku?"}
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  Użyj strzałek ← → do ruchu i spacji do skoku. Wspinaj się jak najwyżej!
-                </p>
-                <Button
-                  onClick={startGame}
-                  size="lg"
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  <ArrowUp className="w-5 h-5 mr-2" />
-                  {gameOver ? "Zagraj ponownie" : "Start"}
-                </Button>
+            <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm rounded-xl">
+              <div className="text-center space-y-6 p-8 max-w-sm">
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold text-foreground">
+                    {gameOver ? `Koniec gry!` : "Wspinaczka wiewiórki!"}
+                  </h3>
+                  {gameOver && (
+                    <div className="space-y-2">
+                      <p className="text-xl font-bold text-primary">
+                        Twój wynik: {score}
+                      </p>
+                      {score === highScore && (
+                        <p className="text-sm text-green-600 font-bold">
+                          🎉 Nowy rekord!
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Użyj strzałek lub WASD do ruchu i spacji do skoku.<br />
+                    Wspinaj się jak najwyżej, zdobywając punkty!
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <Button
+                    onClick={startGame}
+                    size="lg"
+                    className="w-full bg-primary hover:bg-primary/90 h-12 text-lg"
+                  >
+                    <ArrowUp className="w-5 h-5 mr-2" />
+                    {gameOver ? "Zagraj ponownie" : "Rozpocznij grę"}
+                  </Button>
+                  
+                  {gameOver && (
+                    <Button
+                      onClick={resetGame}
+                      variant="outline"
+                      size="lg"
+                      className="w-full h-12"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Resetuj grę
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="pt-4 border-t border-border">
+                  <h4 className="font-semibold text-sm mb-2">Sterowanie:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-muted p-2 rounded text-center">
+                      <div className="font-bold">← → / A D</div>
+                      <div className="text-muted-foreground">Ruch</div>
+                    </div>
+                    <div className="bg-muted p-2 rounded text-center">
+                      <div className="font-bold">Spacja / W / ↑</div>
+                      <div className="text-muted-foreground">Skok</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-
-          {gameStarted && !gameOver && (
-            <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-4 py-2 rounded-full font-bold shadow-lg">
-              Wynik: {score}
             </div>
           )}
         </div>
 
-        <div className="text-sm text-muted-foreground text-center">
-          Sterowanie: Strzałki ← → (ruch), Spacja (skok)
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+          <div className="bg-muted/50 p-3 rounded-lg text-center">
+            <div className="font-bold text-primary">Cel gry</div>
+            <div>Wspinaj się jak najwyżej unikając spadania</div>
+          </div>
+          <div className="bg-muted/50 p-3 rounded-lg text-center">
+            <div className="font-bold text-primary">Mechanika</div>
+            <div>Skacz z platformy na platformę</div>
+          </div>
+          <div className="bg-muted/50 p-3 rounded-lg text-center">
+            <div className="font-bold text-primary">Punkty</div>
+            <div>1 punkt za każde 5 pikseli wysokości</div>
+          </div>
         </div>
       </div>
     </Card>
