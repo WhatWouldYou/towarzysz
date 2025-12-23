@@ -18,6 +18,7 @@ interface Platform {
   y: number;
   width: number;
   height: number;
+  isStartingPlatform?: boolean;
 }
 
 export const IcyTowerGame = () => {
@@ -77,29 +78,45 @@ export const IcyTowerGame = () => {
     };
   }, [gameStarted, gameOver]);
 
-  // Game initialization
+  // Game initialization - UPDATED to ensure player starts on platform
   const initPlatforms = useCallback((canvas: HTMLCanvasElement) => {
     const platforms: Platform[] = [];
-    const startPlatformY = canvas.height - 80;
+    const startPlatformY = canvas.height - 100; // Starting position higher
     
-    // Create starting platform (wider and more stable)
-    platforms.push({
-      x: canvas.width / 2 - 60,
+    // Create wider and more visible starting platform
+    const startingPlatform: Platform = {
+      x: canvas.width / 2 - 80, // Centered and wider
       y: startPlatformY,
-      width: 120,
-      height: 15
-    });
+      width: 160,
+      height: 20,
+      isStartingPlatform: true
+    };
     
-    // Create initial stack of platforms
-    for (let i = 1; i < 20; i++) {
+    platforms.push(startingPlatform);
+    
+    // Position player exactly on top of the starting platform
+    playerRef.current.x = startingPlatform.x + startingPlatform.width / 2 - playerRef.current.width / 2;
+    playerRef.current.y = startingPlatform.y - playerRef.current.height;
+    playerRef.current.vx = 0;
+    playerRef.current.vy = 0;
+    playerRef.current.jumping = false; // Player is standing on platform
+    
+    // Create initial stack of platforms above
+    for (let i = 1; i < 25; i++) {
       const minGap = 50;
       const maxGap = 70;
-      const minWidth = 70;
-      const maxWidth = 110;
+      const minWidth = 60;
+      const maxWidth = 100;
+      const previousPlatform = platforms[i - 1];
+      
+      // Ensure platforms are reachable (not too far horizontally)
+      const maxHorizontalJump = 80;
+      const minX = Math.max(0, previousPlatform.x - maxHorizontalJump);
+      const maxX = Math.min(canvas.width - minWidth, previousPlatform.x + previousPlatform.width + maxHorizontalJump - minWidth);
       
       platforms.push({
-        x: Math.random() * (canvas.width - maxWidth),
-        y: startPlatformY - i * (Math.random() * (maxGap - minGap) + minGap),
+        x: Math.random() * (maxX - minX) + minX,
+        y: previousPlatform.y - (Math.random() * (maxGap - minGap) + minGap),
         width: Math.random() * (maxWidth - minWidth) + minWidth,
         height: 12
       });
@@ -111,31 +128,40 @@ export const IcyTowerGame = () => {
   const resetGame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    playerRef.current = {
-      x: canvas.width / 2 - 10,
-      y: canvas.height - 100,
-      vx: 0,
-      vy: 0,
-      jumping: true,
-      width: 20,
-      height: 20
-    };
+    
+    // First initialize platforms to get starting platform position
+    initPlatforms(canvas);
+    
+    // Then ensure player is properly positioned on starting platform
+    const startingPlatform = platformsRef.current.find(p => p.isStartingPlatform);
+    if (startingPlatform) {
+      playerRef.current = {
+        x: startingPlatform.x + startingPlatform.width / 2 - 10,
+        y: startingPlatform.y - 20,
+        vx: 0,
+        vy: 0,
+        jumping: false,
+        width: 20,
+        height: 20
+      };
+    }
     
     cameraYRef.current = 0;
     keysPressedRef.current.clear();
     setScore(0);
     setGameOver(false);
-    initPlatforms(canvas);
   }, [initPlatforms]);
 
   const startGame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    resetGame();
+    // Reset game state
     setGameStarted(true);
     setGameOver(false);
+    
+    // Initialize platforms and position player
+    resetGame();
     
     // Start game loop
     if (gameLoopIdRef.current) {
@@ -144,7 +170,7 @@ export const IcyTowerGame = () => {
     
     lastTimestampRef.current = performance.now();
     gameLoopIdRef.current = requestAnimationFrame(gameLoop);
-  }, [resetGame]);
+  }, [resetGame, gameLoop]);
 
   const endGame = useCallback(() => {
     setGameOver(true);
@@ -181,7 +207,7 @@ export const IcyTowerGame = () => {
       if (Math.abs(player.vx) < 0.5) player.vx = 0;
     }
 
-    // Handle jumping
+    // Handle jumping - only if on platform
     if ((keys.has(" ") || keys.has("ArrowUp") || keys.has("w")) && !player.jumping) {
       player.vy = -14;
       player.jumping = true;
@@ -251,17 +277,24 @@ export const IcyTowerGame = () => {
         platform.y += scrollAmount;
       }
 
-      // Generate new platforms
+      // Generate new platforms at the top
       const lowestPlatform = Math.max(...platforms.map(p => p.y));
       while (lowestPlatform > -100) {
         const minGap = 50;
         const maxGap = 70;
         const minWidth = 60;
         const maxWidth = 100;
+        const topPlatforms = platforms.filter(p => p.y < canvas.height / 2).slice(-5);
+        const lastPlatform = topPlatforms[topPlatforms.length - 1] || platforms[platforms.length - 1];
+        
+        // Ensure new platforms are reachable
+        const maxHorizontalJump = 80;
+        const minX = Math.max(0, lastPlatform.x - maxHorizontalJump);
+        const maxX = Math.min(canvas.width - minWidth, lastPlatform.x + lastPlatform.width + maxHorizontalJump - minWidth);
         
         platforms.push({
-          x: Math.random() * (canvas.width - maxWidth),
-          y: lowestPlatform - (Math.random() * (maxGap - minGap) + minGap),
+          x: Math.random() * (maxX - minX) + minX,
+          y: lastPlatform.y - (Math.random() * (maxGap - minGap) + minGap),
           width: Math.random() * (maxWidth - minWidth) + minWidth,
           height: 12
         });
@@ -275,8 +308,8 @@ export const IcyTowerGame = () => {
       setScore(newScore);
     }
 
-    // Game over condition
-    if (player.y > canvas.height + 50) {
+    // Game over condition - player falls below starting platform area
+    if (player.y > canvas.height + 100) {
       endGame();
       return;
     }
@@ -291,24 +324,52 @@ export const IcyTowerGame = () => {
 
     // Draw platforms
     platforms.forEach((platform) => {
-      // Platform shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
-      ctx.fillRect(platform.x + 2, platform.y + 2, platform.width, platform.height);
-      
-      // Main platform
-      const platformGradient = ctx.createLinearGradient(
-        platform.x, platform.y,
-        platform.x, platform.y + platform.height
-      );
-      platformGradient.addColorStop(0, "#FF8A65");
-      platformGradient.addColorStop(1, "#D84315");
-      ctx.fillStyle = platformGradient;
-      ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-      
-      // Platform border
-      ctx.strokeStyle = "#BF360C";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+      // Highlight starting platform
+      if (platform.isStartingPlatform) {
+        // Starting platform shadow
+        ctx.fillStyle = "rgba(0, 100, 0, 0.2)";
+        ctx.fillRect(platform.x + 3, platform.y + 3, platform.width, platform.height);
+        
+        // Starting platform gradient (greenish)
+        const platformGradient = ctx.createLinearGradient(
+          platform.x, platform.y,
+          platform.x, platform.y + platform.height
+        );
+        platformGradient.addColorStop(0, "#4CAF50");
+        platformGradient.addColorStop(1, "#2E7D32");
+        ctx.fillStyle = platformGradient;
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        
+        // Starting platform border
+        ctx.strokeStyle = "#1B5E20";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+        
+        // Draw "START" text on starting platform
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("START", platform.x + platform.width / 2, platform.y + platform.height / 2 + 4);
+      } else {
+        // Regular platform shadow
+        ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+        ctx.fillRect(platform.x + 2, platform.y + 2, platform.width, platform.height);
+        
+        // Main platform
+        const platformGradient = ctx.createLinearGradient(
+          platform.x, platform.y,
+          platform.x, platform.y + platform.height
+        );
+        platformGradient.addColorStop(0, "#FF8A65");
+        platformGradient.addColorStop(1, "#D84315");
+        ctx.fillStyle = platformGradient;
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        
+        // Platform border
+        ctx.strokeStyle = "#BF360C";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+      }
     });
 
     // Draw player (squirrel) with more details
@@ -380,7 +441,7 @@ export const IcyTowerGame = () => {
               🐿️ Wiewiórka w Górę!
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Wspinaj się jak najwyżej, unikaj spadania!
+              Zacznij na platformie START i wspinaj się jak najwyżej!
             </p>
           </div>
           
@@ -426,8 +487,8 @@ export const IcyTowerGame = () => {
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    Użyj strzałek lub WASD do ruchu i spacji do skoku.<br />
-                    Wspinaj się jak najwyżej, zdobywając punkty!
+                    Zaczniesz na zielonej platformie START.<br />
+                    Użyj strzałek lub WASD do ruchu i spacji do skoku.
                   </p>
                 </div>
                 
@@ -474,8 +535,8 @@ export const IcyTowerGame = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
           <div className="bg-muted/50 p-3 rounded-lg text-center">
-            <div className="font-bold text-primary">Cel gry</div>
-            <div>Wspinaj się jak najwyżej unikając spadania</div>
+            <div className="font-bold text-primary">Start gry</div>
+            <div>Zaczynasz zawsze na zielonej platformie START</div>
           </div>
           <div className="bg-muted/50 p-3 rounded-lg text-center">
             <div className="font-bold text-primary">Mechanika</div>
