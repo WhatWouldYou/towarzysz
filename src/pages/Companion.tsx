@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { TaskList } from "@/components/TaskList";
-import { IcyTowerGame } from "@/components/IcyTowerGame";
+import { MiniGames } from "@/components/MiniGames";
 import { Leaderboard } from "@/components/Leaderboard";
 import { RewardShop } from "@/components/RewardShop";
 import { AdminPanel } from "@/components/AdminPanel";
@@ -235,7 +235,10 @@ const Companion = () => {
           </TabsContent>
 
           <TabsContent value="game">
-            <IcyTowerGame />
+            <MiniGames 
+              points={stats.points} 
+              onPointsChange={(change) => setStats(prev => ({ ...prev, points: prev.points + change }))} 
+            />
           </TabsContent>
 
           <TabsContent value="leaderboard">
