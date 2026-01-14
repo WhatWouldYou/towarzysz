@@ -467,8 +467,8 @@ export const IcyTowerGame = () => {
           <canvas
             ref={canvasRef}
             width={400}
-            height={600}
-            className="w-full border-4 border-primary/20 rounded-xl bg-background shadow-lg"
+            height={450}
+            className="w-full max-w-md mx-auto border-4 border-primary/20 rounded-xl bg-background shadow-lg"
           />
 
           {!gameStarted && (
